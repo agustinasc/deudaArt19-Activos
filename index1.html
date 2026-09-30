@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Registro Deuda Convenios</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --navy:#1f3a5f; --navy2:#2b5c8a; --bg:#f2f4f7; --card:#fff; --line:#d5dbe3; --line2:#e8ecf1;
+  --text:#1d2733; --muted:#5b6878; --err:#b3261e; --errbg:#fdecea; --ok:#1e6b3a; --okbg:#e6f3ea;
+  --warn:#8a5a00; --warnbg:#fff4dc; --info:#1f4f86; --infobg:#e7f0fa;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 "Segoe UI",Arial,Helvetica,sans-serif}
+h1,h2,h3{margin:0;font-weight:600}
+button{font:inherit;cursor:pointer}
+input,select,textarea{font:inherit;color:inherit}
+
+/* Barra superior */
+.topbar{background:var(--navy);color:#fff;padding:14px 24px;display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+.topbar .tit h1{font-size:18px}
+.topbar .tit div{font-size:12px;opacity:.85;margin-top:2px}
+.topbar .acc{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:#fff;color:var(--text);padding:7px 14px;border-radius:4px}
+.btn:hover{background:#f4f6f9}
+.btn.pri{background:var(--navy2);border-color:var(--navy2);color:#fff}
+.btn.pri:hover{background:#244e76}
+.btn.light{background:transparent;color:#fff;border-color:rgba(255,255,255,.55)}
+.btn.light:hover{background:rgba(255,255,255,.12)}
+.btn.light.pri{background:#fff;color:var(--navy);border-color:#fff}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.sm{padding:3px 9px;font-size:12.5px}
+.statusbar{background:#e3e9f0;border-bottom:1px solid var(--line);padding:7px 24px;font-size:13px;color:var(--muted)}
+.statusbar b{color:var(--text)}
+.statusbar .dirty{color:var(--warn);font-weight:600}
+
+main{max-width:1320px;margin:0 auto;padding:20px 24px 60px}
+section.blk{margin-bottom:26px}
+.blk>h2{font-size:16px;color:var(--navy);margin-bottom:10px;display:flex;align-items:center;gap:12px}
+.blk>h2 .sp{flex:1}
+
+/* Formulario */
+.formgrid{display:grid;grid-template-columns:1fr 320px;gap:18px;align-items:start}
+.card{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:16px 18px;margin-bottom:14px}
+.card h3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:12px;padding-bottom:7px;border-bottom:1px solid var(--line2)}
+.row{display:grid;gap:12px 16px;margin-bottom:10px}
+.c2{grid-template-columns:1fr 1fr}.c3{grid-template-columns:repeat(3,1fr)}.c4{grid-template-columns:repeat(4,1fr)}
+.f label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:3px}
+.f label .req{color:var(--err)}
+.f input,.f select,.f textarea{width:100%;border:1px solid #bfc8d3;border-radius:4px;padding:6px 8px;background:#fff}
+.f input:focus,.f select:focus,.f textarea:focus{outline:2px solid #9cbbe0;outline-offset:0;border-color:var(--navy2)}
+.f input.num{text-align:right}
+.f.bad input,.f.bad select{border-color:var(--err);background:var(--errbg)}
+.f .err{color:var(--err);font-size:12px;margin-top:3px;min-height:0}
+.f .hint{font-size:12px;color:var(--muted);margin-top:3px}
+.f .hint a{color:var(--navy2);cursor:pointer;text-decoration:underline}
+.out{border:1px solid var(--line2);background:#f7f9fb;border-radius:4px;padding:6px 8px;text-align:right;font-variant-numeric:tabular-nums;min-height:32px}
+.out.strong{font-weight:700;background:var(--infobg);border-color:#c6d9ee}
+.formacc{display:flex;gap:10px;align-items:center}
+.formacc .msg{font-size:13px;color:var(--err)}
+
+.lock{position:relative}
+.lock.locked>.card,.lock.locked>.formacc{opacity:.4;pointer-events:none}
+.lockmsg{display:none;background:var(--warnbg);border:1px solid #ecd49a;color:var(--warn);padding:10px 14px;border-radius:5px;margin-bottom:12px}
+.lock.locked .lockmsg{display:block}
+
+/* Resumen lateral */
+.side{position:sticky;top:12px}
+.sum{background:var(--card);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.sum .hd{background:var(--navy);color:#fff;padding:10px 14px;font-weight:600;font-size:13px}
+.sum dl{margin:0;padding:10px 14px}
+.sum dt{font-size:12px;color:var(--muted)}
+.sum dd{margin:0 0 8px;font-variant-numeric:tabular-nums}
+.sum .big{font-size:22px;font-weight:700;color:var(--navy)}
+.sum .note{font-size:12px;color:var(--muted);padding:0 14px 12px}
+
+/* Tabla registros */
+.filters{display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-bottom:10px}
+.filters .f{min-width:170px}
+.tblwrap{background:#fff;border:1px solid var(--line);border-radius:6px;overflow:auto;max-height:560px}
+table.reg{border-collapse:collapse;width:100%;font-size:13px}
+table.reg th{position:sticky;top:0;background:#e9eef4;color:#33404f;text-align:left;font-weight:600;padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap;z-index:1}
+table.reg td{padding:5px 8px;border-bottom:1px solid var(--line2);white-space:nowrap;vertical-align:middle}
+table.reg tr:hover td{background:#f8fafc}
+table.reg td.n{text-align:right;font-variant-numeric:tabular-nums}
+table.reg td input,table.reg td select{border:1px solid #c9d1db;border-radius:3px;padding:3px 5px;font-size:12.5px;background:#fff}
+table.reg td input.mes{width:72px}
+table.reg td input.bad{border-color:var(--err);background:var(--errbg)}
+table.reg tfoot td{position:sticky;bottom:0;background:#e9eef4;font-weight:600;border-top:1px solid var(--line)}
+select.est-Pendiente{background:var(--warnbg)!important}
+select.est-Informada{background:var(--infobg)!important}
+select.est-Retenida{background:var(--okbg)!important}
+.empty{padding:26px;text-align:center;color:var(--muted)}
+
+/* Resumen mes */
+.resgrid{display:grid;grid-template-columns:420px 1fr;gap:18px;align-items:start}
+table.res{border-collapse:collapse;width:100%;font-size:13px;background:#fff}
+table.res td,table.res th{border:1px solid var(--line2);padding:4px 10px}
+table.res th{background:#e9eef4;text-align:left}
+table.res td.n{text-align:right;font-variant-numeric:tabular-nums}
+table.res tr.has td{background:var(--infobg);font-weight:600}
+table.res tr.tot td{background:var(--navy);color:#fff;font-weight:700}
+.muted{color:var(--muted);font-size:13px}
+
+/* Planilla */
+.plwrap{background:#dfe4ea;border:1px solid var(--line);border-radius:6px;padding:24px;display:flex;justify-content:center}
+.plwrap .empty{background:#fff;border-radius:4px;width:100%}
+.pl{background:#fff;width:190mm;min-height:250mm;padding:18mm 18mm 16mm;box-shadow:0 2px 8px rgba(0,0,0,.15);font-family:Arial,Helvetica,sans-serif;font-size:11pt;color:#000}
+.pl-head{text-align:center;border-bottom:1.5px solid #000;padding-bottom:6px;margin-bottom:14px}
+.pl-head .o{font-weight:700;font-size:11.5pt;letter-spacing:.02em}
+.pl-head .d{font-size:10pt}
+.pl-fecha{text-align:right;margin:0 0 16px}
+.pl-title{text-align:center;font-size:12.5pt;font-weight:700;text-decoration:underline;margin:0 0 16px}
+.pl table{border-collapse:collapse;width:100%;margin-bottom:14px}
+.pl td,.pl th{border:1px solid #000;padding:5px 8px;font-size:10.5pt}
+.pl th{background:#eee;text-align:left;font-weight:700}
+.pl .datos th{width:34%}
+.pl .per th,.pl .per td{text-align:center}
+.pl .calc td.v{text-align:right;width:28%;font-variant-numeric:tabular-nums}
+.pl .calc td.m{text-align:center;width:24%;font-variant-numeric:tabular-nums}
+.pl .calc tr.tot td{font-weight:700;background:#eee;font-size:11.5pt}
+.pl-ley{border:1px solid #000;padding:8px 10px;font-size:10pt;margin-top:18px;text-align:justify}
+
+#printArea{display:none}
+.toast{position:fixed;right:20px;bottom:20px;background:var(--ok);color:#fff;padding:10px 16px;border-radius:5px;box-shadow:0 3px 12px rgba(0,0,0,.2);opacity:0;transform:translateY(8px);transition:.2s;pointer-events:none;max-width:420px;z-index:10}
+.toast.show{opacity:1;transform:none}
+.toast.warn{background:var(--warn)}
+
+@media (max-width:1100px){.formgrid,.resgrid{grid-template-columns:1fr}.side{position:static}}
+@media print{
+  body{background:#fff}
+  body>*:not(#printArea){display:none!important}
+  #printArea{display:block}
+  #printArea .pl{box-shadow:none;width:auto;min-height:0;padding:0}
+  @page{size:A4;margin:16mm}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="tit">
+    <h1>Registro de Deudas por Convenio de Regularización</h1>
+    <div>AGAP · Dirección Provincial de Gestión Previsional de Activos · Art. 19 Decreto Acuerdo 127/11</div>
+  </div>
+  <div class="acc">
+    <button class="btn light" id="btnAbrir">Abrir Registro (.xlsx)</button>
+    <button class="btn light" id="btnNuevo">Nuevo Registro</button>
+    <button class="btn light pri" id="btnDescargar" disabled>Descargar Registro actualizado</button>
+    <input type="file" id="fileIn" accept=".xlsx,.xls" hidden>
+  </div>
+</header>
+<div class="statusbar" id="status">Ningún registro abierto. Abrí el Registro existente o creá uno nuevo para empezar.</div>
+
+<main>
+
+<!-- ============ CARGA ============ -->
+<section class="blk">
+  <h2>Carga de agente</h2>
+  <div class="formgrid">
+    <div class="lock locked" id="lockZone">
+      <div class="lockmsg">Primero abrí el Registro existente (.xlsx) o creá un Registro nuevo con los botones de arriba.</div>
+
+      <div class="card">
+        <h3>Datos del agente</h3>
+        <div class="row c2">
+          <div class="f" data-k="nombre"><label>Apellido y Nombre <span class="req">*</span></label><input id="f_nombre" autocomplete="off"><div class="err"></div></div>
+          <div class="f" data-k="cuil"><label>CUIL <span class="req">*</span></label><input id="f_cuil" placeholder="XX-XXXXXXXX-X" maxlength="13" autocomplete="off"><div class="err"></div></div>
+        </div>
+        <div class="row c2">
+          <div class="f" data-k="municipio"><label>Municipio <span class="req">*</span></label><select id="f_muni"><option value="">— Elegir —</option></select><div class="err"></div></div>
+          <div class="f" data-k="lugar"><label>Lugar de Trabajo (texto de la planilla)</label><input id="f_lugar"><div class="hint">Se completa solo al elegir el municipio; podés corregirlo.</div></div>
+        </div>
+        <div class="row c3">
+          <div class="f" data-k="expediente"><label>N° de Expediente</label><input id="f_expte" placeholder="T55887"><div class="err"></div></div>
+          <div class="f" data-k="gde"><label>N° documento GDE de la planilla</label><input id="f_gde" placeholder="COPDI-2026-02262341-CAT-DPGPA#AGAP"><div class="err"></div></div>
+          <div class="f" data-k="fecha"><label>Fecha de la planilla <span class="req">*</span></label><input type="date" id="f_fecha"><div class="err"></div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Cálculo</h3>
+        <div class="row c4">
+          <div class="f" data-k="desde"><label>Período desde <span class="req">*</span></label><input id="f_desde" placeholder="mm/aaaa" maxlength="7"><div class="err"></div></div>
+          <div class="f" data-k="hasta"><label>Período hasta <span class="req">*</span></label><input id="f_hasta" placeholder="mm/aaaa" maxlength="7"><div class="err"></div></div>
+          <div class="f"><label>Períodos adeudados</label><div class="out" id="o_periodos">—</div></div>
+          <div class="f" data-k="agu"><label>Aguinaldos</label><input id="f_agu" class="num"><div class="hint" id="h_agu"></div><div class="err"></div></div>
+        </div>
+        <div class="row c4">
+          <div class="f"><label>Total períodos adeudados</label><div class="out" id="o_totper">—</div></div>
+          <div class="f" data-k="desc"><label>Períodos descontados</label><input id="f_desc" class="num" value="0"><div class="err"></div></div>
+          <div class="f" data-k="dep"><label>Períodos depositados</label><input id="f_dep" class="num" value="0"><div class="err"></div></div>
+          <div class="f"><label>Total meses adeudados</label><div class="out strong" id="o_totmeses">—</div></div>
+        </div>
+        <div class="row c4">
+          <div class="f" data-k="rem"><label>Remuneración Adm. Actualizada <span class="req">*</span></label><input id="f_rem" class="num" placeholder="0,00"><div class="err"></div></div>
+          <div class="f" data-k="alic"><label>Alícuota (%) <span class="req">*</span></label><input id="f_alic" class="num" value="6"><div class="err"></div></div>
+          <div class="f"><label>Aporte + Contribución mensual</label><div class="out" id="o_mensual">—</div></div>
+          <div class="f"><label>Total a pagar</label><div class="out strong" id="o_total">—</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Seguimiento</h3>
+        <div class="row c4">
+          <div class="f" data-k="notif"><label>Fecha notificación al municipio</label><input type="date" id="f_notif"><div class="err"></div></div>
+          <div class="f" data-k="mesinf"><label>Mes de informe (aaaamm)</label><input id="f_mesinf" placeholder="202610" maxlength="6"><div class="err"></div></div>
+          <div class="f" data-k="estado"><label>Estado</label><select id="f_estado"><option>Pendiente</option><option>Informada</option><option>Retenida</option></select></div>
+          <div class="f" data-k="ret"><label>Fecha retención confirmada</label><input type="date" id="f_ret"><div class="err"></div></div>
+        </div>
+        <div class="row">
+          <div class="f" data-k="obs"><label>Observaciones</label><textarea id="f_obs" rows="2"></textarea></div>
+        </div>
+      </div>
+
+      <div class="formacc">
+        <button class="btn pri" id="btnGuardar">Guardar en el Registro</button>
+        <button class="btn" id="btnLimpiar">Limpiar formulario</button>
+        <span class="msg" id="formMsg"></span>
+      </div>
+    </div>
+
+    <aside class="side">
+      <div class="sum">
+        <div class="hd">Resumen del cálculo</div>
+        <dl>
+          <dt>Agente</dt><dd id="s_agente">—</dd>
+          <dt>Municipio</dt><dd id="s_muni">—</dd>
+          <dt>Período</dt><dd id="s_per">—</dd>
+          <dt>Total meses adeudados</dt><dd id="s_meses">—</dd>
+          <dt>Aporte + Contribución mensual</dt><dd id="s_mensual">—</dd>
+          <dt>TOTAL A PAGAR</dt><dd class="big" id="s_total">—</dd>
+        </dl>
+        <div class="note">Redondeo aritmético a 2 decimales (0,5 hacia arriba), calculado en centavos exactos.</div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- ============ PLANILLA ============ -->
+<section class="blk">
+  <h2>Vista previa de la planilla <span class="sp"></span><button class="btn pri" id="btnPrint" disabled>Imprimir / Guardar PDF</button></h2>
+  <div class="plwrap" id="plWrap"><div class="empty">La planilla aparece acá al guardar un agente, o con “Ver planilla” en la tabla de registros.</div></div>
+</section>
+
+<!-- ============ REGISTROS ============ -->
+<section class="blk">
+  <h2>Registros cargados</h2>
+  <div class="filters">
+    <div class="f"><label>Municipio</label><select id="flt_muni"><option value="">Todos</option></select></div>
+    <div class="f"><label>Estado</label><select id="flt_estado"><option value="">Todos</option><option>Pendiente</option><option>Informada</option><option>Retenida</option></select></div>
+    <div class="f"><label>Mes de informe</label><select id="flt_mes"><option value="">Todos</option></select></div>
+  </div>
+  <div class="tblwrap">
+    <table class="reg">
+      <thead><tr>
+        <th>N°</th><th>Fecha planilla</th><th>Municipio</th><th>Apellido y Nombre</th><th>CUIL</th><th>Expediente</th>
+        <th>Desde–Hasta</th><th>Total meses</th><th>Total a pagar</th>
+        <th>Notificación</th><th>Mes informe</th><th>Estado</th><th>Retención</th><th></th>
+      </tr></thead>
+      <tbody id="tb"></tbody>
+      <tfoot><tr><td colspan="8" id="tf_cant"></td><td class="n" id="tf_total"></td><td colspan="5"></td></tr></tfoot>
+    </table>
+    <div class="empty" id="tbEmpty">Sin registros.</div>
+  </div>
+</section>
+
+<!-- ============ RESUMEN MES ============ -->
+<section class="blk">
+  <h2>Resumen del mes para Contaduría</h2>
+  <div class="resgrid">
+    <div>
+      <div class="card">
+        <div class="row c2" style="margin-bottom:0">
+          <div class="f" data-k="resmes"><label>Mes de informe (aaaamm)</label><input id="res_mes" maxlength="6"><div class="err"></div></div>
+          <div class="f"><label>&nbsp;</label><button class="btn" id="btnCopiar" style="width:100%">Copiar columna de importes</button></div>
+        </div>
+        <p class="muted" style="margin:12px 0 0">Suma el Total a pagar de <b>todos</b> los registros con ese mes de informe, cualquiera sea su estado. Este mes también queda cargado en la celda B1 de la hoja “Resumen mes” al descargar; ahí podés cambiarlo y Excel recalcula.</p>
+        <p class="muted" id="res_otros" style="margin:8px 0 0;color:var(--warn)"></p>
+      </div>
+    </div>
+    <div style="max-height:620px;overflow:auto;border:1px solid var(--line);border-radius:6px">
+      <table class="res"><thead><tr><th>Municipio</th><th style="text-align:right">DEUDA CONVENIO REG.</th></tr></thead><tbody id="res_tb"></tbody></table>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<div id="printArea"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+/* ================== CONSTANTES ================== */
+const MUNICIPIOS = ['ACONQUIJA','ANCASTI','ANDALGALA','ANT. DE LA S','BELEN','CAPAYAN','C QUEMADO','EL ALTO','EL RODEO','FIAMBALA','FRAY M ESQUIU','HUALFIN','HUILLAPIMA','ICAÑO','LA PUERTA','LAS JUNTAS','LONDRES','LOS ALTOS','LOS VARELA','MUTQUIN','PACLIN','POMAN','P DE PIEDRA','LA P. DE C. Q.','LA P DE S JOSE','RECREO','S FERNANDO','CAPITAL','SAN JOSE','SANTA MARIA','SANTA ROSA','SAUJIL','TAPSO','TINOGASTA','VALLE VIEJO','VILLA VIL'];
+
+// Nombre completo para "Lugar de Trabajo" en la planilla (editable en el formulario)
+const LUGAR = {'ACONQUIJA':'Aconquija','ANCASTI':'Ancasti','ANDALGALA':'Andalgalá','ANT. DE LA S':'Antofagasta de la Sierra','BELEN':'Belén','CAPAYAN':'Capayán','C QUEMADO':'Corral Quemado','EL ALTO':'El Alto','EL RODEO':'El Rodeo','FIAMBALA':'Fiambalá','FRAY M ESQUIU':'Fray Mamerto Esquiú','HUALFIN':'Hualfín','HUILLAPIMA':'Huillapima','ICAÑO':'Icaño','LA PUERTA':'La Puerta','LAS JUNTAS':'Las Juntas','LONDRES':'Londres','LOS ALTOS':'Los Altos','LOS VARELA':'Los Varela','MUTQUIN':'Mutquín','PACLIN':'Paclín','POMAN':'Pomán','P DE PIEDRA':'Pozo de Piedra','LA P. DE C. Q.':'Puerta de Corral Quemado','LA P DE S JOSE':'Puerta de San José','RECREO':'Recreo','S FERNANDO':'San Fernando','CAPITAL':'San Fernando del Valle de Catamarca','SAN JOSE':'San José','SANTA MARIA':'Santa María','SANTA ROSA':'Santa Rosa','SAUJIL':'Saujil','TAPSO':'Tapso','TINOGASTA':'Tinogasta','VALLE VIEJO':'Valle Viejo','VILLA VIL':'Villa Vil'};
+
+const ESTADOS = ['Pendiente','Informada','Retenida'];
+const MESES_TXT = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const LEYENDA = 'El monto adeudado será cancelado mediante retención de los fondos de Coparticipación Municipal, conforme cláusula TERCERA del Convenio de Regularización de Deuda y art. 19 del Decreto Acuerdo N° 127/11.';
+
+// Columnas de la hoja "Registro" (orden fijo). Total a pagar = col R, Municipio = col C, Mes informe = col T.
+const COLS = [
+  {k:'n',h:'N°',t:'int',w:6},
+  {k:'fecha',h:'Fecha planilla',t:'date',w:12},
+  {k:'municipio',h:'Municipio',t:'str',w:16},
+  {k:'nombre',h:'Apellido y Nombre',t:'str',w:32},
+  {k:'cuil',h:'CUIL',t:'str',w:15},
+  {k:'expediente',h:'Expediente',t:'str',w:12},
+  {k:'gde',h:'N° GDE',t:'str',w:38},
+  {k:'desde',h:'Desde',t:'mes',w:9},
+  {k:'hasta',h:'Hasta',t:'mes',w:9},
+  {k:'periodos',h:'Períodos',t:'coef',w:9},
+  {k:'aguinaldos',h:'Aguinaldos',t:'coef',w:10},
+  {k:'descontados',h:'Descontados',t:'coef',w:11},
+  {k:'depositados',h:'Depositados',t:'coef',w:11},
+  {k:'totalMeses',h:'Total meses',t:'coef',w:11},
+  {k:'remuneracion',h:'Remuneración actualizada',t:'money',w:17},
+  {k:'alicuota',h:'Alícuota',t:'pct',w:9},
+  {k:'mensual',h:'Aporte+Contrib. mensual',t:'money',w:17},
+  {k:'total',h:'Total a pagar',t:'money',w:17},
+  {k:'fechaNotif',h:'Fecha notificación',t:'date',w:13},
+  {k:'mesInforme',h:'Mes informe',t:'int',w:11},
+  {k:'estado',h:'Estado',t:'str',w:11},
+  {k:'fechaRet',h:'Fecha retención',t:'date',w:13},
+  {k:'obs',h:'Observaciones',t:'str',w:45},
+];
+const CALC_HEAD = ['CUIL','Apellido y Nombre','Período','Coeficiente','Base (remuneración)','Alícuota','Importe','Detalle'];
+const FMT_MONEY = '#,##0.00', FMT_PCT = '0.00%', FMT_DATE = 'dd/mm/yyyy';
+
+/* ================== ESTADO EN MEMORIA ================== */
+let records = [];        // filas de la hoja Registro
+let calcRows = [];       // filas de la hoja Cálculo (arrays)
+let otherSheets = [];    // otras hojas del archivo abierto, se conservan tal cual
+let regOpen = false, fileName = '', dirty = false;
+let aguManual = false, showErrors = false, currentPlanilla = null;
+
+/* ================== ARITMÉTICA DECIMAL EXACTA ================== */
+// Normaliza texto numérico argentino a "1234.56". '' si vacío, null si inválido.
+function normNum(s){
+  if (s == null) return '';
+  s = String(s).trim().replace(/[\s$]/g,'');
+  if (s === '') return '';
+  let neg = false;
+  if (s[0] === '-') { neg = true; s = s.slice(1); }
+  if (s.includes(',')) s = s.replace(/\./g,'').replace(',', '.');
+  else {
+    const dots = (s.match(/\./g)||[]).length;
+    if (dots > 1) s = s.replace(/\./g,'');
+    else if (dots === 1 && /^\d{1,3}\.\d{3}$/.test(s)) s = s.replace('.','');
+  }
+  if (!/^\d*\.?\d*$/.test(s) || s === '.' ) return null;
+  if (s.startsWith('.')) s = '0' + s;
+  if (s.endsWith('.')) s = s.slice(0,-1);
+  return (neg ? '-' : '') + s;
+}
+// "1234.565" -> BigInt escalado a d decimales, redondeo half-up
+function toScaled(str, d){
+  let neg = str.startsWith('-'); if (neg) str = str.slice(1);
+  const [i, f=''] = str.split('.');
+  let v = BigInt(i || '0') * 10n ** BigInt(d) + BigInt((f + '0'.repeat(d)).slice(0, d) || '0');
+  if (f.length > d && f[d] >= '5') v += 1n;
+  return neg ? -v : v;
+}
+// División entera con redondeo aritmético (0,5 se aleja del cero)
+function rdiv(a, b){ const neg = a < 0n; if (neg) a = -a; const q = (a * 2n + b) / (2n * b); return neg ? -q : q; }
+function fmtScaled(v, d, minD){
+  if (minD === undefined) minD = d;
+  const neg = v < 0n; if (neg) v = -v;
+  const s = v.toString().padStart(d + 1, '0');
+  let i = s.slice(0, s.length - d), f = s.slice(s.length - d);
+  i = i.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  while (f.length > minD && f.endsWith('0')) f = f.slice(0, -1);
+  return (neg ? '-' : '') + i + (f ? ',' + f : '');
+}
+const fmtMoney = c => fmtScaled(c, 2);        // centavos -> 1.234,56
+const fmtCoef  = v => fmtScaled(v, 2, 0);     // coef x100 -> 6,5
+const cents = n => BigInt(Math.round(Number(n || 0) * 100));
+const c2 = cents;
+const pct4 = frac => BigInt(Math.round(Number(frac || 0) * 1e6)); // 0,06 -> 60000 (porcentaje con 4 decimales)
+
+/* Cálculo principal: rem en centavos, alícuota % x10000, meses x100 */
+function calcMensual(remC, alic4){ return rdiv(remC * alic4, 1000000n); }
+function calcTotal(mensualC, meses2){ return rdiv(mensualC * meses2, 100n); }
+
+/* ================== PERÍODOS ================== */
+function parseMesAnio(s){
+  const m = String(s||'').trim().match(/^(0?[1-9]|1[0-2])\/(\d{4})$/);
+  if (!m) return null;
+  const y = +m[2]; if (y < 1990 || y > 2100) return null;
+  return {m: +m[1], y};
+}
+const mIdx = p => p.y * 12 + (p.m - 1);
+const mTxt = p => String(p.m).padStart(2,'0') + '/' + p.y;
+function contarSac(d, h){ let c = 0; for (let i = mIdx(d); i <= mIdx(h); i++){ const m = i % 12 + 1; if (m === 6 || m === 12) c++; } return c; }
+
+// Detalle período por período (hoja Cálculo). Devuelve [{per, coef2, imp}] cuya suma = total.
+function buildDetalle(d, h, mensual, agu2, sug2, desc2, dep2, total){
+  const rows = [], aguAuto = agu2 === sug2;
+  for (let i = mIdx(d); i <= mIdx(h); i++){
+    const m = i % 12 + 1, y = Math.floor(i / 12);
+    rows.push({per: mTxt({m, y}), coef2: 100n, imp: mensual});
+    if (aguAuto && m === 6)  rows.push({per: 'SAC 1° sem ' + y, coef2: 50n, imp: rdiv(mensual * 50n, 100n)});
+    if (aguAuto && m === 12) rows.push({per: 'SAC 2° sem ' + y, coef2: 50n, imp: rdiv(mensual * 50n, 100n)});
+  }
+  if (!aguAuto && agu2 !== 0n) rows.push({per: 'SAC (ajuste manual)', coef2: agu2, imp: rdiv(mensual * agu2, 100n)});
+  if (desc2 > 0n) rows.push({per: 'Períodos descontados', coef2: -desc2, imp: -rdiv(mensual * desc2, 100n)});
+  if (dep2 > 0n)  rows.push({per: 'Períodos depositados', coef2: -dep2, imp: -rdiv(mensual * dep2, 100n)});
+  const suma = rows.reduce((a, r) => a + r.imp, 0n);
+  if (suma !== total) rows.push({per: 'Diferencia de redondeo', coef2: 0n, imp: total - suma, redondeo: true});
+  return rows;
+}
+
+/* ================== CUIL ================== */
+function fmtCuilInput(s){
+  const d = s.replace(/\D/g,'').slice(0,11);
+  if (d.length <= 2) return d;
+  if (d.length <= 10) return d.slice(0,2) + '-' + d.slice(2);
+  return d.slice(0,2) + '-' + d.slice(2,10) + '-' + d.slice(10);
+}
+function validarCuil(s){
+  if (!/^\d{2}-\d{8}-\d$/.test(s)) return 'Formato XX-XXXXXXXX-X (11 dígitos).';
+  const d = s.replace(/\D/g,''), m = [5,4,3,2,7,6,5,4,3,2];
+  let sum = 0; for (let i = 0; i < 10; i++) sum += +d[i] * m[i];
+  let dv = 11 - (sum % 11); if (dv === 11) dv = 0;
+  if (dv === 10) return 'CUIL inválido (dígito verificador).';
+  if (dv !== +d[10]) return 'Dígito verificador incorrecto (debería ser ' + dv + ').';
+  return true;
+}
+
+/* ================== FECHAS ================== */
+const pad2 = n => String(n).padStart(2,'0');
+function isoToSerial(iso){ const [y,m,d] = iso.split('-').map(Number); return (Date.UTC(y, m-1, d) - Date.UTC(1899, 11, 30)) / 86400000; }
+function serialToIso(n){ return new Date(Date.UTC(1899, 11, 30) + Math.floor(n) * 86400000).toISOString().slice(0,10); }
+const isIso = s => /^\d{4}-\d{2}-\d{2}$/.test(s);
+function anyToIso(v){
+  if (v === '' || v == null) return '';
+  if (typeof v === 'number') return serialToIso(v);
+  if (v instanceof Date) return v.toISOString().slice(0,10);
+  const s = String(v).trim();
+  let m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); if (m) return m[3] + '-' + pad2(m[2]) + '-' + pad2(m[1]);
+  m = s.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return m[1] + '-' + m[2] + '-' + m[3];
+  return s; // se conserva el texto original si no se reconoce
+}
+const isoToDmy = s => isIso(s) ? s.slice(8,10) + '/' + s.slice(5,7) + '/' + s.slice(0,4) : (s || '');
+function isoLargo(s){ if (!isIso(s)) return s || ''; const [y,m,d] = s.split('-').map(Number); return d + ' de ' + MESES_TXT[m-1] + ' de ' + y; }
+const hoyIso = () => { const t = new Date(); return t.getFullYear() + '-' + pad2(t.getMonth()+1) + '-' + pad2(t.getDate()); };
+const validMesInf = s => /^\d{4}(0[1-9]|1[0-2])$/.test(s);
+function mesAnterior(){ const t = new Date(); let y = t.getFullYear(), m = t.getMonth(); if (m === 0) { y--; m = 12; } return y + pad2(m); }
+
+/* ================== UTILIDADES UI ================== */
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function toast(msg, warn){ const t = $('toast'); t.textContent = msg; t.className = 'toast show' + (warn ? ' warn' : ''); clearTimeout(t._h); t._h = setTimeout(() => t.className = 'toast', 3800); }
+function setDirty(v){ dirty = v; updateStatus(); }
+function updateStatus(){
+  if (!regOpen) return;
+  const tot = records.reduce((a, r) => a + cents(r.total), 0n);
+  $('status').innerHTML = 'Registro: <b>' + esc(fileName) + '</b> · ' + records.length + ' registro(s) · Total registrado $ ' + fmtMoney(tot) +
+    (dirty ? ' · <span class="dirty">Hay cambios sin descargar</span>' : '');
+}
+
+/* ================== FORMULARIO ================== */
+function leerForm(){
+  const e = {}, v = {};
+  v.nombre = $('f_nombre').value.trim().replace(/\s+/g,' ');
+  if (!v.nombre) e.nombre = 'Obligatorio.';
+  v.cuil = $('f_cuil').value.trim();
+  if (!v.cuil) e.cuil = 'Obligatorio.'; else { const c = validarCuil(v.cuil); if (c !== true) e.cuil = c; }
+  v.municipio = $('f_muni').value; if (!v.municipio) e.municipio = 'Elegí un municipio.';
+  v.lugar = $('f_lugar').value.trim();
+  v.expediente = $('f_expte').value.trim();
+  v.gde = $('f_gde').value.trim();
+  v.fecha = $('f_fecha').value; if (!v.fecha) e.fecha = 'Obligatorio.';
+
+  const ds = $('f_desde').value.trim(), hs = $('f_hasta').value.trim();
+  const d = parseMesAnio(ds), h = parseMesAnio(hs);
+  if (!d) e.desde = ds ? 'Formato mm/aaaa.' : 'Obligatorio.';
+  if (!h) e.hasta = hs ? 'Formato mm/aaaa.' : 'Obligatorio.';
+  if (d && h){
+    const n = mIdx(h) - mIdx(d) + 1;
+    if (n < 1) e.hasta = 'Debe ser igual o posterior a “desde”.';
+    else { v.d = d; v.h = h; v.per2 = BigInt(n) * 100n; v.sug2 = BigInt(contarSac(d, h)) * 50n; }
+  }
+  const coef = (id, key) => {
+    const s = normNum($(id).value);
+    if (s === '') return 0n;
+    if (s === null || s.startsWith('-')) { e[key] = 'Número inválido.'; return null; }
+    const [, f=''] = s.split('.'); if (f.length > 2) { e[key] = 'Máximo 2 decimales.'; return null; }
+    return toScaled(s, 2);
+  };
+  v.agu2 = coef('f_agu','agu'); v.desc2 = coef('f_desc','desc'); v.dep2 = coef('f_dep','dep');
+
+  const rs = normNum($('f_rem').value);
+  if (rs === '') e.rem = 'Obligatorio.';
+  else if (rs === null || rs.startsWith('-') || toScaled(rs, 2) <= 0n) e.rem = 'Importe inválido.';
+  else v.remC = toScaled(rs, 2);
+  const as = normNum($('f_alic').value);
+  if (as === '') e.alic = 'Obligatorio.';
+  else if (as === null || as.startsWith('-') || toScaled(as, 4) <= 0n || toScaled(as, 4) > 1000000n) e.alic = 'Alícuota inválida.';
+  else v.alic4 = toScaled(as, 4);
+
+  if (v.per2 != null && v.agu2 != null){
+    v.totPer2 = v.per2 + v.agu2;
+    if (v.desc2 != null && v.dep2 != null){
+      v.meses2 = v.totPer2 - v.desc2 - v.dep2;
+      if (v.meses2 < 0n) { e.dep = 'Descontados + depositados superan el total de períodos.'; v.meses2 = null; }
+    }
+  }
+  if (v.remC != null && v.alic4 != null) v.mensual = calcMensual(v.remC, v.alic4);
+  if (v.mensual != null && v.meses2 != null) v.total = calcTotal(v.mensual, v.meses2);
+
+  v.notif = $('f_notif').value;
+  v.mesinf = $('f_mesinf').value.trim();
+  if (v.mesinf && !validMesInf(v.mesinf)) e.mesinf = 'Formato aaaamm (ej. 202610).';
+  v.estado = $('f_estado').value;
+  v.ret = $('f_ret').value;
+  v.obs = $('f_obs').value.trim();
+  return {v, e};
+}
+
+function refresh(){
+  // Sugerencia de aguinaldo
+  const d = parseMesAnio($('f_desde').value), h = parseMesAnio($('f_hasta').value);
+  if (d && h && mIdx(h) >= mIdx(d)){
+    const sug = BigInt(contarSac(d, h)) * 50n;
+    if (!aguManual) $('f_agu').value = fmtCoef(sug);
+    const cur = normNum($('f_agu').value);
+    const igual = cur !== null && cur !== '' ? toScaled(cur, 2) === sug : sug === 0n;
+    $('h_agu').innerHTML = 'Sugerido: ' + fmtCoef(sug) + (aguManual && !igual ? ' · <a id="aguReset">usar sugerido</a>' : '');
+  } else $('h_agu').textContent = '';
+
+  const {v, e} = leerForm();
+  const s = x => x == null ? '—' : x;
+  $('o_periodos').textContent = v.per2 != null ? fmtCoef(v.per2) : '—';
+  $('o_totper').textContent = v.totPer2 != null ? fmtCoef(v.totPer2) : '—';
+  $('o_totmeses').textContent = v.meses2 != null ? fmtCoef(v.meses2) : '—';
+  $('o_mensual').textContent = v.mensual != null ? '$ ' + fmtMoney(v.mensual) : '—';
+  $('o_total').textContent = v.total != null ? '$ ' + fmtMoney(v.total) : '—';
+  $('s_agente').textContent = s(v.nombre || null) + (v.cuil ? ' · ' + v.cuil : '');
+  $('s_muni').textContent = v.municipio || '—';
+  $('s_per').textContent = v.d && v.h ? mTxt(v.d) + ' a ' + mTxt(v.h) : '—';
+  $('s_meses').textContent = $('o_totmeses').textContent;
+  $('s_mensual').textContent = $('o_mensual').textContent;
+  $('s_total').textContent = $('o_total').textContent;
+  if (showErrors) mostrarErrores(e);
+  return {v, e};
+}
+
+function mostrarErrores(e){
+  document.querySelectorAll('#lockZone .f[data-k]').forEach(f => {
+    const k = f.dataset.k, box = f.querySelector('.err');
+    f.classList.toggle('bad', !!e[k]);
+    if (box) box.textContent = e[k] || '';
+  });
+}
+
+function limpiarAgente(total){
+  ['f_nombre','f_cuil','f_gde','f_rem','f_obs','f_notif','f_ret'].forEach(id => $(id).value = '');
+  $('f_estado').value = 'Pendiente';
+  if (total){
+    ['f_expte','f_desde','f_hasta','f_mesinf','f_lugar'].forEach(id => $(id).value = '');
+    $('f_muni').value = ''; $('f_alic').value = '6'; $('f_fecha').value = hoyIso();
+    $('f_desc').value = '0'; $('f_dep').value = '0'; $('f_agu').value = ''; aguManual = false;
+  }
+  showErrors = false; mostrarErrores({}); $('formMsg').textContent = '';
+  refresh();
+}
+
+function guardar(){
+  if (!regOpen) { toast('Abrí o creá un Registro primero.', true); return; }
+  showErrors = true;
+  const {v, e} = refresh();
+  const keys = Object.keys(e);
+  if (keys.length){
+    $('formMsg').textContent = 'Revisá los campos marcados (' + keys.length + ').';
+    const first = document.querySelector('#lockZone .f.bad input, #lockZone .f.bad select');
+    if (first) first.focus();
+    return;
+  }
+  $('formMsg').textContent = '';
+  const dup = records.filter(r => r.cuil === v.cuil);
+  if (dup.length){
+    const txt = dup.map(r => '• N° ' + r.n + ' — ' + r.municipio + ' — ' + (r.expediente || 's/exp.') + ' — $ ' + fmtMoney(cents(r.total))).join('\n');
+    if (!confirm('El CUIL ' + v.cuil + ' ya está en el Registro:\n\n' + txt + '\n\n¿Agregar igualmente un nuevo registro?')) return;
+  }
+  const n = records.reduce((a, r) => Math.max(a, Number(r.n) || 0), 0) + 1;
+  const rec = {
+    n, fecha: v.fecha, municipio: v.municipio, nombre: v.nombre, cuil: v.cuil, expediente: v.expediente, gde: v.gde,
+    desde: mTxt(v.d), hasta: mTxt(v.h),
+    periodos: Number(v.per2) / 100, aguinaldos: Number(v.agu2) / 100, descontados: Number(v.desc2) / 100,
+    depositados: Number(v.dep2) / 100, totalMeses: Number(v.meses2) / 100,
+    remuneracion: Number(v.remC) / 100, alicuota: Number(v.alic4) / 1e6,
+    mensual: Number(v.mensual) / 100, total: Number(v.total) / 100,
+    fechaNotif: v.notif, mesInforme: v.mesinf, estado: v.estado, fechaRet: v.ret, obs: v.obs,
+    lugar: v.lugar
+  };
+  records.push(rec);
+  const alicFrac = Number(v.alic4) / 1e6, base = Number(v.remC) / 100;
+  buildDetalle(v.d, v.h, v.mensual, v.agu2, v.sug2, v.desc2, v.dep2, v.total).forEach(r => {
+    const det = r.redondeo ? 'Ajuste para igualar el total de la planilla'
+      : fmtCoef(r.coef2) + ' × ' + fmtMoney(v.mensual) + ' = ' + fmtMoney(r.imp);
+    calcRows.push([v.cuil, v.nombre, r.per, Number(r.coef2) / 100, base, alicFrac, Number(r.imp) / 100, det]);
+  });
+  setDirty(true);
+  renderAll();
+  mostrarPlanilla(rec);
+  toast('Registro N° ' + n + ' guardado: ' + v.nombre + ' — $ ' + fmtMoney(v.total));
+  limpiarAgente(false);
+  $('f_nombre').focus();
+}
+
+/* ================== PLANILLA ================== */
+function planillaHTML(r){
+  const men = cents(r.mensual), tot = cents(r.total);
+  const per = c2(r.periodos), agu = c2(r.aguinaldos), tm = c2(r.totalMeses);
+  const alic = fmtScaled(pct4(r.alicuota), 4, 0);
+  const lugar = r.lugar || ('Municipalidad de ' + (LUGAR[r.municipio] || r.municipio));
+  const row = (a, b) => '<tr><th>' + a + '</th><td class="v" colspan="2">' + b + '</td></tr>';
+  return '<div class="pl">' +
+    '<div class="pl-head"><div class="o">ADMINISTRACIÓN GENERAL DE ASUNTOS PREVISIONALES</div><div class="d">Dirección Provincial de Gestión Previsional de Activos</div></div>' +
+    '<p class="pl-fecha">San Fernando del Valle de Catamarca, ' + esc(isoLargo(r.fecha)) + '</p>' +
+    '<table class="datos">' +
+      '<tr><th>Apellido y Nombre</th><td>' + esc(r.nombre) + '</td></tr>' +
+      '<tr><th>CUIL</th><td>' + esc(r.cuil) + '</td></tr>' +
+      '<tr><th>Lugar de Trabajo</th><td>' + esc(lugar) + '</td></tr>' +
+    '</table>' +
+    '<table class="per"><tr><th colspan="3" style="text-align:center">Períodos adeudados</th></tr>' +
+      '<tr><th>Desde</th><th>Hasta</th><th>Total</th></tr>' +
+      '<tr><td>' + esc(r.desde) + '</td><td>' + esc(r.hasta) + '</td><td>' + fmtCoef(per) + '</td></tr></table>' +
+    '<table class="calc">' +
+      row('Remuneración Administrativa Actualizada', '$ ' + fmtMoney(cents(r.remuneracion))) +
+      row('Aporte + Contribución ' + alic + ' %', '$ ' + fmtMoney(men)) +
+      row('Períodos adeudados', fmtCoef(per)) +
+      row('Aguinaldo', fmtCoef(agu)) +
+      row('Total períodos adeudados', fmtCoef(per + agu)) +
+      row('Períodos descontados', fmtCoef(c2(r.descontados))) +
+      row('Períodos depositados', fmtCoef(c2(r.depositados))) +
+      row('Total meses adeudados', fmtCoef(tm)) +
+      '<tr><th>' + alic + ' % x Total meses con deuda</th><td class="m">$ ' + fmtMoney(men) + ' x ' + fmtCoef(tm) + '</td><td class="v">$ ' + fmtMoney(tot) + '</td></tr>' +
+      '<tr class="tot"><td>TOTAL A PAGAR</td><td class="v" colspan="2">$ ' + fmtMoney(tot) + '</td></tr>' +
+    '</table>' +
+    '<div class="pl-ley">' + esc(LEYENDA) + '</div>' +
+  '</div>';
+}
+function mostrarPlanilla(r){
+  currentPlanilla = r;
+  $('plWrap').innerHTML = planillaHTML(r);
+  $('btnPrint').disabled = false;
+}
+
+/* ================== TABLA DE REGISTROS ================== */
+function renderFiltros(){
+  const sel = $('flt_mes'), cur = sel.value;
+  const meses = [...new Set(records.map(r => String(r.mesInforme || '')))].filter(Boolean).sort().reverse();
+  sel.innerHTML = '<option value="">Todos</option><option value="__none">(sin asignar)</option>' + meses.map(m => '<option>' + m + '</option>').join('');
+  sel.value = [...sel.options].some(o => o.value === cur) ? cur : '';
+}
+function filtrados(){
+  const fm = $('flt_muni').value, fe = $('flt_estado').value, fi = $('flt_mes').value;
+  return records.filter(r => (!fm || r.municipio === fm) && (!fe || r.estado === fe) &&
+    (!fi || (fi === '__none' ? !r.mesInforme : String(r.mesInforme) === fi)));
+}
+function renderTabla(){
+  const rows = filtrados();
+  $('tb').innerHTML = rows.map(r => {
+    const i = records.indexOf(r);
+    return '<tr data-i="' + i + '">' +
+      '<td class="n">' + esc(r.n) + '</td><td>' + esc(isoToDmy(r.fecha)) + '</td><td>' + esc(r.municipio) + '</td>' +
+      '<td>' + esc(r.nombre) + '</td><td>' + esc(r.cuil) + '</td><td>' + esc(r.expediente) + '</td>' +
+      '<td>' + esc(r.desde) + ' – ' + esc(r.hasta) + '</td><td class="n">' + fmtCoef(c2(r.totalMeses)) + '</td>' +
+      '<td class="n">' + fmtMoney(cents(r.total)) + '</td>' +
+      '<td><input type="date" data-f="fechaNotif" value="' + (isIso(r.fechaNotif) ? r.fechaNotif : '') + '"></td>' +
+      '<td><input class="mes" data-f="mesInforme" maxlength="6" value="' + esc(r.mesInforme) + '"></td>' +
+      '<td><select data-f="estado" class="est-' + esc(r.estado) + '">' + ESTADOS.map(s => '<option' + (s === r.estado ? ' selected' : '') + '>' + s + '</option>').join('') + '</select></td>' +
+      '<td><input type="date" data-f="fechaRet" value="' + (isIso(r.fechaRet) ? r.fechaRet : '') + '"></td>' +
+      '<td><button class="btn sm" data-act="ver">Ver planilla</button></td></tr>';
+  }).join('');
+  $('tbEmpty').style.display = rows.length ? 'none' : 'block';
+  renderPie(rows);
+}
+function renderPie(rows){
+  rows = rows || filtrados();
+  $('tf_cant').textContent = rows.length + ' registro(s) mostrados' + (rows.length !== records.length ? ' de ' + records.length : '');
+  $('tf_total').textContent = '$ ' + fmtMoney(rows.reduce((a, r) => a + cents(r.total), 0n));
+}
+
+/* ================== RESUMEN MES ================== */
+function totalesMes(mes){
+  const map = new Map(MUNICIPIOS.map(m => [m, 0n])); let otros = 0;
+  records.forEach(r => {
+    if (String(r.mesInforme || '') !== mes) return;
+    if (map.has(r.municipio)) map.set(r.municipio, map.get(r.municipio) + cents(r.total)); else otros++;
+  });
+  return {map, otros};
+}
+function renderResumen(){
+  const mes = $('res_mes').value.trim(), ok = validMesInf(mes);
+  const f = $('res_mes').closest('.f');
+  f.classList.toggle('bad', !!mes && !ok); f.querySelector('.err').textContent = mes && !ok ? 'Formato aaaamm.' : '';
+  const {map, otros} = totalesMes(ok ? mes : '__');
+  let tot = 0n;
+  $('res_tb').innerHTML = MUNICIPIOS.map(m => { const v = map.get(m); tot += v;
+    return '<tr' + (v ? ' class="has"' : '') + '><td>' + esc(m) + '</td><td class="n">' + fmtMoney(v) + '</td></tr>'; }).join('') +
+    '<tr class="tot"><td>TOTAL GENERAL</td><td class="n">' + fmtMoney(tot) + '</td></tr>';
+  $('res_otros').textContent = otros ? 'Atención: ' + otros + ' registro(s) de ese mes tienen un municipio que no está en la lista y no se suman.' : '';
+}
+function copiarColumna(){
+  const mes = $('res_mes').value.trim();
+  if (!validMesInf(mes)) { toast('Indicá un mes válido (aaaamm).', true); return; }
+  const {map} = totalesMes(mes);
+  const txt = MUNICIPIOS.map(m => fmtScaled(map.get(m), 2).replace(/\./g,'')).join('\n');
+  const fallback = () => { const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); };
+  const done = () => toast('Copiados los 36 importes de ' + mes + ' (en el orden de la lista). Pegalos en la columna DEUDA CONVENIO REG.');
+  if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(txt).then(done, () => { fallback(); done(); });
+  else { fallback(); done(); }
+}
+
+function renderAll(){ renderFiltros(); renderTabla(); renderResumen(); updateStatus(); }
+
+/* ================== EXCEL: LECTURA ================== */
+const normH = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
+function numVal(v){
+  if (typeof v === 'number') return v;
+  const s = normNum(v); if (s === '' || s === null) return 0;
+  return Number(s);
+}
+function mesVal(v){
+  if (typeof v === 'number') { const iso = serialToIso(v); return iso.slice(5,7) + '/' + iso.slice(0,4); }
+  const p = parseMesAnio(v); return p ? mTxt(p) : String(v || '').trim();
+}
+function leerWorkbook(wb){
+  const names = wb.SheetNames;
+  const regName = names.find(n => normH(n) === 'registro');
+  if (!regName) throw new Error('El archivo no tiene una hoja llamada "Registro".');
+  const calcName = names.find(n => normH(n) === 'calculo');
+  const resName = names.find(n => normH(n) === 'resumenmes');
+
+  const aoa = XLSX.utils.sheet_to_json(wb.Sheets[regName], {header: 1, raw: true, defval: ''});
+  const head = (aoa[0] || []).map(normH);
+  const pos = COLS.map((c, i) => { const j = head.indexOf(normH(c.h)); return j >= 0 ? j : i; });
+  const recs = [];
+  aoa.slice(1).forEach(row => {
+    if (!row.some(x => x !== '' && x != null)) return;
+    const r = {};
+    COLS.forEach((c, i) => {
+      const v = row[pos[i]];
+      if (c.t === 'date') r[c.k] = anyToIso(v);
+      else if (c.t === 'mes') r[c.k] = mesVal(v);
+      else if (c.t === 'money' || c.t === 'coef') r[c.k] = numVal(v);
+      else if (c.t === 'pct') { let x = numVal(v); if (x > 1) x = x / 100; r[c.k] = x; }
+      else if (c.k === 'mesInforme') r[c.k] = v === '' || v == null ? '' : String(v).trim();
+      else if (c.k === 'n') r[c.k] = v === '' ? '' : (typeof v === 'number' ? v : (Number(v) || v));
+      else r[c.k] = v == null ? '' : String(v).trim();
+    });
+    const est = ESTADOS.find(e => e.toLowerCase() === String(r.estado).toLowerCase());
+    r.estado = est || (r.estado ? r.estado : 'Pendiente');
+    recs.push(r);
+  });
+  let calc = [];
+  if (calcName) calc = XLSX.utils.sheet_to_json(wb.Sheets[calcName], {header: 1, raw: true, defval: ''}).slice(1).filter(r => r.some(x => x !== '' && x != null));
+  const others = names.filter(n => n !== regName && n !== calcName && n !== resName).map(n => ({name: n, ws: wb.Sheets[n]}));
+  let resMes = '';
+  if (resName) { const c = wb.Sheets[resName]['B1']; if (c && validMesInf(String(c.v))) resMes = String(c.v); }
+  return {recs, calc, others, resMes};
+}
+
+/* ================== EXCEL: ESCRITURA ================== */
+function setCell(ws, r, c, cell){ if (cell) ws[XLSX.utils.encode_cell({r, c})] = cell; }
+function cellFor(t, v){
+  if (v === '' || v == null) return null;
+  switch (t){
+    case 'money': return {t:'n', v:Number(v), z:FMT_MONEY};
+    case 'pct':   return {t:'n', v:Number(v), z:FMT_PCT};
+    case 'coef':  return {t:'n', v:Number(v)};
+    case 'int':   return (typeof v === 'number' || /^\d+$/.test(String(v))) ? {t:'n', v:Number(v), z:'0'} : {t:'s', v:String(v)};
+    case 'date':  return isIso(v) ? {t:'n', v:isoToSerial(v), z:FMT_DATE} : {t:'s', v:String(v)};
+    default:      return {t:'s', v:String(v)};
+  }
+}
+function hojaRegistro(){
+  const ws = {};
+  COLS.forEach((c, j) => setCell(ws, 0, j, {t:'s', v:c.h}));
+  records.forEach((r, i) => COLS.forEach((c, j) => setCell(ws, i + 1, j, cellFor(c.t, r[c.k]))));
+  const last = Math.max(records.length, 1);
+  ws['!ref'] = XLSX.utils.encode_range({s:{r:0, c:0}, e:{r:last, c:COLS.length - 1}});
+  ws['!cols'] = COLS.map(c => ({wch: c.w}));
+  ws['!autofilter'] = {ref: XLSX.utils.encode_range({s:{r:0, c:0}, e:{r:last, c:COLS.length - 1}})};
+  return ws;
+}
+function hojaCalculo(){
+  const ws = {}, types = ['str','str','str','coef','money','pct','money','str'];
+  CALC_HEAD.forEach((h, j) => setCell(ws, 0, j, {t:'s', v:h}));
+  calcRows.forEach((row, i) => types.forEach((t, j) => {
+    const v = row[j];
+    setCell(ws, i + 1, j, typeof v === 'number' ? cellFor(t === 'str' ? 'coef' : t, v) : cellFor('str', v));
+  }));
+  ws['!ref'] = XLSX.utils.encode_range({s:{r:0, c:0}, e:{r:Math.max(calcRows.length, 1), c:CALC_HEAD.length - 1}});
+  ws['!cols'] = [{wch:15},{wch:32},{wch:20},{wch:12},{wch:18},{wch:9},{wch:15},{wch:42}];
+  return ws;
+}
+function hojaResumen(){
+  const ws = {}, mes = $('res_mes').value.trim(), ok = validMesInf(mes);
+  const {map} = totalesMes(ok ? mes : '__');
+  setCell(ws, 0, 0, {t:'s', v:'Mes de informe (aaaamm):'});
+  if (ok) setCell(ws, 0, 1, {t:'n', v:Number(mes), z:'0'});
+  setCell(ws, 1, 0, {t:'s', v:'Cambiar B1 para ver otro mes. Incluye todos los estados.'});
+  setCell(ws, 3, 0, {t:'s', v:'MUNICIPIO'});
+  setCell(ws, 3, 1, {t:'s', v:'DEUDA CONVENIO REG.'});
+  let tot = 0n;
+  MUNICIPIOS.forEach((m, i) => {
+    const r = 4 + i, v = map.get(m); tot += v;
+    setCell(ws, r, 0, {t:'s', v:m});
+    setCell(ws, r, 1, {t:'n', v:Number(v) / 100, z:FMT_MONEY,
+      f:'SUMIFS(Registro!$R:$R,Registro!$C:$C,A' + (r + 1) + ',Registro!$T:$T,$B$1)'});
+  });
+  const rt = 4 + MUNICIPIOS.length;
+  setCell(ws, rt, 0, {t:'s', v:'TOTAL GENERAL'});
+  setCell(ws, rt, 1, {t:'n', v:Number(tot) / 100, z:FMT_MONEY, f:'SUM(B5:B' + rt + ')'});
+  ws['!ref'] = 'A1:B' + (rt + 1);
+  ws['!cols'] = [{wch:26},{wch:22}];
+  return ws;
+}
+function buildWorkbook(){
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, hojaRegistro(), 'Registro');
+  XLSX.utils.book_append_sheet(wb, hojaCalculo(), 'Cálculo');
+  XLSX.utils.book_append_sheet(wb, hojaResumen(), 'Resumen mes');
+  otherSheets.forEach(o => XLSX.utils.book_append_sheet(wb, o.ws, o.name));
+  return wb;
+}
+
+/* ================== ACCIONES PRINCIPALES ================== */
+function activarRegistro(name){
+  regOpen = true; fileName = name;
+  $('lockZone').classList.remove('locked');
+  $('btnDescargar').disabled = false;
+  renderAll();
+}
+function nuevoRegistro(){
+  if (dirty && !confirm('Hay cambios sin descargar en el Registro actual. ¿Descartarlos y empezar uno nuevo?')) return;
+  records = []; calcRows = []; otherSheets = [];
+  const t = hoyIso().replace(/-/g,'');
+  activarRegistro('Registro_Deudas_Convenio_' + t + '.xlsx');
+  setDirty(false);
+  toast('Registro nuevo creado. Recordá descargarlo antes de cerrar la página.');
+}
+function abrirArchivo(file){
+  const rd = new FileReader();
+  rd.onload = ev => {
+    try {
+      const wb = XLSX.read(new Uint8Array(ev.target.result), {type:'array'});
+      const {recs, calc, others, resMes} = leerWorkbook(wb);
+      records = recs; calcRows = calc; otherSheets = others;
+      if (resMes) $('res_mes').value = resMes;
+      activarRegistro(file.name);
+      setDirty(false);
+      toast('Registro abierto: ' + recs.length + ' registro(s). Los nuevos se agregan debajo.');
+    } catch (err) { alert('No se pudo abrir el archivo.\n\n' + err.message); }
+  };
+  rd.readAsArrayBuffer(file);
+}
+function descargar(){
+  if (!regOpen) return;
+  const mes = $('res_mes').value.trim();
+  if (mes && !validMesInf(mes)) { toast('Corregí el mes del Resumen (aaaamm) antes de descargar.', true); return; }
+  XLSX.writeFile(buildWorkbook(), fileName, {bookType:'xlsx'});
+  setDirty(false);
+  toast('Descargado: ' + fileName);
+}
+
+/* ================== EVENTOS ================== */
+function init(){
+  const opts = MUNICIPIOS.map(m => '<option>' + esc(m) + '</option>').join('');
+  $('f_muni').insertAdjacentHTML('beforeend', opts);
+  $('flt_muni').insertAdjacentHTML('beforeend', opts);
+  $('f_fecha').value = hoyIso();
+  $('res_mes').value = mesAnterior();
+
+  $('btnAbrir').onclick = () => {
+    if (dirty && !confirm('Hay cambios sin descargar. ¿Abrir otro archivo igualmente?')) return;
+    $('fileIn').value = ''; $('fileIn').click();
+  };
+  $('fileIn').onchange = e => { if (e.target.files[0]) abrirArchivo(e.target.files[0]); };
+  $('btnNuevo').onclick = nuevoRegistro;
+  $('btnDescargar').onclick = descargar;
+  $('btnGuardar').onclick = guardar;
+  $('btnLimpiar').onclick = () => limpiarAgente(true);
+  $('btnPrint').onclick = () => { if (!currentPlanilla) return; $('printArea').innerHTML = planillaHTML(currentPlanilla); window.print(); };
+  $('btnCopiar').onclick = copiarColumna;
+
+  $('f_cuil').addEventListener('input', e => { e.target.value = fmtCuilInput(e.target.value); });
+  ['f_desde','f_hasta'].forEach(id => $(id).addEventListener('input', e => {
+    let d = e.target.value.replace(/\D/g,'').slice(0,6);
+    e.target.value = d.length > 2 ? d.slice(0,2) + '/' + d.slice(2) : d;
+  }));
+  $('f_mesinf').addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g,''); });
+  $('f_agu').addEventListener('input', () => { aguManual = true; });
+  $('h_agu').addEventListener('click', e => { if (e.target.id === 'aguReset') { aguManual = false; refresh(); } });
+  $('f_muni').addEventListener('change', e => {
+    const m = e.target.value;
+    $('f_lugar').value = m ? 'Municipalidad de ' + (LUGAR[m] || m) : '';
+    if (m === 'POMAN' && !$('f_desde').value.trim() && !$('f_hasta').value.trim()){
+      $('f_desde').value = '12/2012'; $('f_hasta').value = '05/2013';
+    }
+    refresh();
+  });
+  $('lockZone').addEventListener('input', refresh);
+  $('lockZone').addEventListener('change', refresh);
+  $('lockZone').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); guardar(); } });
+
+  ['flt_muni','flt_estado','flt_mes'].forEach(id => $(id).addEventListener('change', renderTabla));
+
+  $('tb').addEventListener('change', e => {
+    const el = e.target, f = el.dataset.f; if (!f) return;
+    const r = records[+el.closest('tr').dataset.i]; if (!r) return;
+    if (f === 'mesInforme'){
+      const v = el.value.trim();
+      if (v && !validMesInf(v)) { el.classList.add('bad'); toast('Mes de informe inválido: usá aaaamm.', true); return; }
+      el.classList.remove('bad'); r.mesInforme = v; renderFiltros();
+    } else if (f === 'estado'){ r.estado = el.value; el.className = 'est-' + el.value; }
+    else r[f] = el.value;
+    setDirty(true); renderPie(); renderResumen();
+  });
+  $('tb').addEventListener('click', e => {
+    if (e.target.dataset.act !== 'ver') return;
+    const r = records[+e.target.closest('tr').dataset.i];
+    if (r) { mostrarPlanilla(r); $('plWrap').scrollIntoView({behavior:'smooth', block:'start'}); }
+  });
+
+  $('res_mes').addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g,''); renderResumen(); });
+
+  window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+  renderAll(); refresh();
+}
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
