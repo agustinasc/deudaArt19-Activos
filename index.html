@@ -227,13 +227,22 @@ const DRIVE_URL   = 'https://script.google.com/macros/s/AKfycbw3_mtaMwaVT1nqlX80
 const DRIVE_CLAVE = 'dpgpactivos2024';
 
 /* ================== CONSTANTES ================== */
-const MUNICIPIOS = ['ACONQUIJA','ANCASTI','ANDALGALA','ANT. DE LA S','BELEN','CAPAYAN','C QUEMADO','EL ALTO','EL RODEO','FIAMBALA','FRAY M ESQUIU','HUALFIN','HUILLAPIMA','ICAÑO','LA PUERTA','LAS JUNTAS','LONDRES','LOS ALTOS','LOS VARELA','MUTQUIN','PACLIN','POMAN','P DE PIEDRA','LA P. DE C. Q.','LA P DE S JOSE','RECREO','S FERNANDO','CAPITAL','SAN JOSE','SANTA MARIA','SANTA ROSA','SAUJIL','TAPSO','TINOGASTA','VALLE VIEJO','VILLA VIL','CAMARA DE DIPUTADOS','PODER JUDICIAL'];
+const MUNICIPIOS = ['ACONQUIJA','ANCASTI','ANDALGALA','ANT. DE LA S','BELEN','CAPAYAN','C QUEMADO','EL ALTO','EL RODEO','FIAMBALA','FRAY M ESQUIU','HUALFIN','HUILLAPIMA','ICAÑO','LA PUERTA','LAS JUNTAS','LONDRES','LOS ALTOS','LOS VARELA','MUTQUIN','PACLIN','POMAN','P DE PIEDRA','LA P. DE C. Q.','LA P DE S JOSE','RECREO','S FERNANDO','CAPITAL','SAN JOSE','SANTA MARIA','SANTA ROSA','SAUJIL','TAPSO','TINOGASTA','VALLE VIEJO','VILLA VIL','CAMARA DE DIPUTADOS','PODER JUDICIAL',
+  // Organismos sin deuda por adhesión (no tienen períodos precargados)
+  'SENADORES','TRIBUNAL DE CUENTAS','DEFENSORIA DEL PUEBLO','EDUCACION','FONAVI','GUARDIAS MEDICAS','COMPLETA'];
 
 // Nombre completo para "Lugar de Trabajo" en la planilla (editable en el formulario)
 const LUGAR = {'ACONQUIJA':'Aconquija','ANCASTI':'Ancasti','ANDALGALA':'Andalgalá','ANT. DE LA S':'Antofagasta de la Sierra','BELEN':'Belén','CAPAYAN':'Capayán','C QUEMADO':'Corral Quemado','EL ALTO':'El Alto','EL RODEO':'El Rodeo','FIAMBALA':'Fiambalá','FRAY M ESQUIU':'Fray Mamerto Esquiú','HUALFIN':'Hualfín','HUILLAPIMA':'Huillapima','ICAÑO':'Icaño','LA PUERTA':'La Puerta','LAS JUNTAS':'Las Juntas','LONDRES':'Londres','LOS ALTOS':'Los Altos','LOS VARELA':'Los Varela','MUTQUIN':'Mutquín','PACLIN':'Paclín','POMAN':'Pomán','P DE PIEDRA':'Pozo de Piedra','LA P. DE C. Q.':'Puerta de Corral Quemado','LA P DE S JOSE':'Puerta de San José','RECREO':'Recreo','S FERNANDO':'San Fernando','CAPITAL':'San Fernando del Valle de Catamarca','SAN JOSE':'San José','SANTA MARIA':'Santa María','SANTA ROSA':'Santa Rosa','SAUJIL':'Saujil','TAPSO':'Tapso','TINOGASTA':'Tinogasta','VALLE VIEJO':'Valle Viejo','VILLA VIL':'Villa Vil'};
 
 // Lugar de Trabajo completo para organismos que no son municipios
-const LUGAR_ORG = {'CAMARA DE DIPUTADOS':'Cámara de Diputados de la Provincia de Catamarca','PODER JUDICIAL':'Poder Judicial de la Provincia de Catamarca'};
+const LUGAR_ORG = {'CAMARA DE DIPUTADOS':'Cámara de Diputados de la Provincia de Catamarca','PODER JUDICIAL':'Poder Judicial de la Provincia de Catamarca',
+  'SENADORES':'Cámara de Senadores de la Provincia de Catamarca',
+  'TRIBUNAL DE CUENTAS':'Tribunal de Cuentas de la Provincia de Catamarca',
+  'DEFENSORIA DEL PUEBLO':'Defensoría del Pueblo de la Provincia de Catamarca',
+  'EDUCACION':'Ministerio de Educación de la Provincia de Catamarca',
+  'FONAVI':'FONAVI',
+  'GUARDIAS MEDICAS':'Guardias Médicas',
+  'COMPLETA':'Completa'};
 const lugarDe = m => LUGAR_ORG[m] || ('Municipalidad de ' + (LUGAR[m] || m));
 
 // Períodos de deuda por adhesión (listado Organismos y Municipios Dcto. 127/11 al 26/05/2026).
