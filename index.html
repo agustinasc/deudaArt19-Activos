@@ -62,6 +62,15 @@ section.blk{margin-bottom:26px}
 .card.tipo .f select{font-weight:600}
 body.modo-agente .solo-copa{display:none}
 body.modo-agente .card.tipo{border-left-color:var(--warn)}
+.solo-agente{display:none}
+body.modo-agente .solo-agente{display:block}
+.intervalo{align-items:start}
+.intervalo .quitar{margin-top:21px}
+.addint{margin:0 0 12px}
+.alerta{background:var(--warnbg);border:1px solid #e6c98a;border-left:4px solid var(--warn);color:#5f3f00;border-radius:6px;padding:10px 14px;margin-bottom:14px}
+.alerta .coincide{display:none;margin-top:6px;font-weight:600}
+.alerta.fuerte{background:#ffe3b3;border-color:var(--warn);border-left-width:6px}
+.alerta.fuerte .coincide{display:block}
 
 /* Resumen lateral */
 .side{position:sticky;top:12px}
@@ -160,6 +169,8 @@ body.modo-agente .card.tipo{border-left-color:var(--warn)}
         </div>
       </div>
 
+      <div class="alerta" id="alertaMuni" role="status" hidden></div>
+
       <div class="card">
         <h3>Cálculo</h3>
         <div class="row c4">
@@ -168,6 +179,8 @@ body.modo-agente .card.tipo{border-left-color:var(--warn)}
           <div class="f"><label>Períodos adeudados</label><div class="out" id="o_periodos">—</div></div>
           <div class="f" data-k="agu"><label>Aguinaldos</label><input id="f_agu" class="num"><div class="hint" id="h_agu"></div><div class="err"></div></div>
         </div>
+        <div id="intervalosExtra" class="solo-agente"></div>
+        <div class="addint solo-agente"><button type="button" class="btn" id="btnAddInt">+ Agregar intervalo</button></div>
         <div class="row c4">
           <div class="f"><label>Total períodos adeudados</label><div class="out" id="o_totper">—</div></div>
           <div class="f" data-k="desc"><label>Períodos descontados</label><input id="f_desc" class="num" value="0"><div class="err"></div></div>
@@ -273,6 +286,14 @@ const PRECARGA = {
   'VILLA VIL':      {desde:'03/2017', hasta:'05/2017'},
   'CAMARA DE DIPUTADOS': {desde:'10/2012', hasta:'12/2012'},
   'PODER JUDICIAL': {desde:'03/2014', hasta:'05/2014'},
+};
+
+// Avisos internos por municipio (no se imprimen ni se guardan en el Drive).
+const ALERTAS = {
+  'ANDALGALA': {
+    tramos: [['10/2013','04/2014'], ['07/2014','07/2014']], sacDic: 2013,
+    texto: '<b>⚠ Andalgalá – Concejo Deliberante:</b> los aportes y contribuciones desde 10/2013 a 04/2014, 07/2014 y el SAC de 12/2013 (8,5 períodos) no se realizaron. Si el agente trabajó en el Concejo Deliberante durante esos períodos, verificá la deuda antes de generar la planilla.'
+  }
 };
 
 const MESES_TXT = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
@@ -439,6 +460,86 @@ function updateStatus(){
     (records.length ? ' · Total $ ' + fmtMoney(tot) : '');
 }
 
+/* ================== INTERVALOS (solo Pago del agente) ================== */
+let seqInt = 0;
+function renumerarIntervalos(){
+  document.querySelectorAll('#intervalosExtra .intervalo').forEach((r, i) => {
+    r.querySelector('.ld').textContent = 'Desde (intervalo ' + (i + 2) + ')';
+    r.querySelector('.lh').textContent = 'Hasta (intervalo ' + (i + 2) + ')';
+  });
+}
+function agregarIntervalo(){
+  const id = 'x' + (++seqInt), r = document.createElement('div');
+  r.className = 'row c4 intervalo';
+  r.innerHTML =
+    '<div class="f" data-k="desde_' + id + '"><label class="ld"></label><input class="mes id" placeholder="mm/aaaa" maxlength="7"><div class="err"></div></div>' +
+    '<div class="f" data-k="hasta_' + id + '"><label class="lh"></label><input class="mes ih" placeholder="mm/aaaa" maxlength="7"><div class="err"></div></div>' +
+    '<div class="f"><label>Meses del intervalo</label><div class="out on">—</div></div>' +
+    '<div class="f"><button type="button" class="btn quitar">Quitar</button></div>';
+  r.dataset.id = id;
+  $('intervalosExtra').appendChild(r);
+  renumerarIntervalos();
+  r.querySelector('.id').focus();
+  refresh();
+}
+function quitarIntervalos(){ $('intervalosExtra').innerHTML = ''; }
+
+// Devuelve los intervalos válidos ordenados y si están todos bien. Registra los errores en e.
+function leerIntervalos(e){
+  const filas = [{ds: $('f_desde').value.trim(), hs: $('f_hasta').value.trim(), kd: 'desde', kh: 'hasta'}];
+  if (modoAgente()) document.querySelectorAll('#intervalosExtra .intervalo').forEach(r => {
+    const ds = r.querySelector('.id').value.trim(), hs = r.querySelector('.ih').value.trim();
+    r.querySelector('.on').textContent = '—';
+    if (ds || hs) filas.push({ds, hs, kd: 'desde_' + r.dataset.id, kh: 'hasta_' + r.dataset.id, out: r.querySelector('.on')});
+  });
+  let ok = true;
+  const lista = [];
+  filas.forEach(f => {
+    const d = parseMesAnio(f.ds), h = parseMesAnio(f.hs);
+    if (!d) { e[f.kd] = f.ds ? 'Formato mm/aaaa.' : 'Obligatorio.'; ok = false; }
+    if (!h) { e[f.kh] = f.hs ? 'Formato mm/aaaa.' : 'Obligatorio.'; ok = false; }
+    if (d && h){
+      const n = mIdx(h) - mIdx(d) + 1;
+      if (n < 1) { e[f.kh] = 'Debe ser igual o posterior a “desde”.'; ok = false; }
+      else { lista.push({d, h, n, kd: f.kd}); if (f.out) f.out.textContent = String(n); }
+    }
+  });
+  lista.sort((a, b) => mIdx(a.d) - mIdx(b.d));
+  for (let i = 1; i < lista.length; i++){
+    if (mIdx(lista[i].d) <= mIdx(lista[i-1].h)){
+      e[lista[i].kd] = 'Se superpone con ' + mTxt(lista[i-1].d) + ' a ' + mTxt(lista[i-1].h) + '.';
+      ok = false;
+    }
+  }
+  return {lista, ok};
+}
+const txtIntervalo = i => mTxt(i.d) + ' a ' + mTxt(i.h);
+
+/* ================== AVISOS POR MUNICIPIO ================== */
+function actualizarAlerta(lista){
+  const box = $('alertaMuni'), a = ALERTAS[$('f_muni').value];
+  if (!a){ box.hidden = true; box.innerHTML = ''; box.classList.remove('fuerte'); return; }
+  const afectados = new Set(), marcados = new Set();
+  a.tramos.forEach(([d, h]) => { for (let x = mIdx(parseMesAnio(d)); x <= mIdx(parseMesAnio(h)); x++) afectados.add(x); });
+  lista.forEach(i => { for (let x = mIdx(i.d); x <= mIdx(i.h); x++) if (afectados.has(x)) marcados.add(x); });
+  const tramos = [], orden = [...marcados].sort((p, q) => p - q);
+  const t = k => mTxt({m: k % 12 + 1, y: Math.floor(k / 12)});
+  for (let j = 0; j < orden.length; j++){
+    const x = orden[j];
+    while (j + 1 < orden.length && orden[j + 1] === orden[j] + 1) j++;
+    tramos.push(x === orden[j] ? t(x) : t(x) + ' a ' + t(orden[j]));
+  }
+  const conSac = marcados.has(a.sacDic * 12 + 11);
+  let det = '';
+  if (marcados.size){
+    const per2 = BigInt(marcados.size) * 100n + (conSac ? 50n : 0n);
+    det = 'El período cargado coincide en: ' + tramos.join('; ') + (conSac ? ' y el SAC de 12/' + a.sacDic : '') + ' (' + fmtCoef(per2) + (per2 === 100n ? ' período).' : ' períodos).');
+  }
+  box.innerHTML = a.texto + '<div class="coincide">' + esc(det) + '</div>';
+  box.classList.toggle('fuerte', marcados.size > 0);
+  box.hidden = false;
+}
+
 /* ================== FORMULARIO ================== */
 function leerForm(){
   const e = {}, v = {};
@@ -453,14 +554,12 @@ function leerForm(){
   v.fecha = $('f_fecha').value; if (!v.fecha) e.fecha = 'Obligatorio.';
   v.obs = $('f_obs').value.trim();
 
-  const ds = $('f_desde').value.trim(), hs = $('f_hasta').value.trim();
-  const d = parseMesAnio(ds), h = parseMesAnio(hs);
-  if (!d) e.desde = ds ? 'Formato mm/aaaa.' : 'Obligatorio.';
-  if (!h) e.hasta = hs ? 'Formato mm/aaaa.' : 'Obligatorio.';
-  if (d && h){
-    const n = mIdx(h) - mIdx(d) + 1;
-    if (n < 1) e.hasta = 'Debe ser igual o posterior a “desde”.';
-    else { v.d = d; v.h = h; v.per2 = BigInt(n) * 100n; v.sug2 = BigInt(contarSac(d, h)) * 50n; }
+  const iv = leerIntervalos(e);
+  if (iv.ok){
+    v.intervalos = iv.lista;
+    v.d = iv.lista[0].d; v.h = iv.lista[iv.lista.length - 1].h;
+    v.per2 = iv.lista.reduce((a, i) => a + BigInt(i.n) * 100n, 0n);
+    v.sug2 = iv.lista.reduce((a, i) => a + BigInt(contarSac(i.d, i.h)) * 50n, 0n);
   }
   const coef = (id, key) => {
     const s = normNum($(id).value);
@@ -494,9 +593,9 @@ function leerForm(){
 
 function refresh(){
   // Sugerencia de aguinaldo
-  const d = parseMesAnio($('f_desde').value), h = parseMesAnio($('f_hasta').value);
-  if (d && h && mIdx(h) >= mIdx(d)){
-    const sug = BigInt(contarSac(d, h)) * 50n;
+  const iv = leerIntervalos({});
+  if (iv.ok){
+    const sug = iv.lista.reduce((a, i) => a + BigInt(contarSac(i.d, i.h)) * 50n, 0n);
     if (!aguManual) $('f_agu').value = fmtCoef(sug);
     const cur = normNum($('f_agu').value);
     const igual = cur !== null && cur !== '' ? toScaled(cur, 2) === sug : sug === 0n;
@@ -512,7 +611,8 @@ function refresh(){
   $('o_total').textContent = v.total != null ? '$ ' + fmtMoney(v.total) : '—';
   $('s_agente').textContent = s(v.nombre || null) + (v.cuil ? ' · ' + v.cuil : '');
   $('s_muni').textContent = v.municipio || '—';
-  $('s_per').textContent = v.d && v.h ? mTxt(v.d) + ' a ' + mTxt(v.h) : '—';
+  $('s_per').textContent = v.intervalos ? v.intervalos.map(txtIntervalo).join('; ') : '—';
+  actualizarAlerta(iv.lista);
   $('s_meses').textContent = $('o_totmeses').textContent;
   $('s_mensual').textContent = $('o_mensual').textContent;
   $('s_total').textContent = $('o_total').textContent;
@@ -532,6 +632,7 @@ function limpiarAgente(total){
   ['f_nombre','f_cuil','f_gde','f_rem','f_obs'].forEach(id => $(id).value = '');
   if (total){
     ['f_expte','f_desde','f_hasta','f_lugar'].forEach(id => $(id).value = '');
+    quitarIntervalos();
     $('f_muni').value = ''; $('f_alic').value = '6'; $('f_fecha').value = hoyIso();
     $('f_desc').value = '0'; $('f_dep').value = '0'; $('f_agu').value = ''; aguManual = false;
   }
@@ -577,6 +678,7 @@ async function guardar(){
     const recA = {
       tipo: 'agente', fecha: v.fecha, nombre: v.nombre, cuil: v.cuil, municipio: v.municipio, lugar: v.lugar,
       expediente: v.expediente, desde: mTxt(v.d), hasta: mTxt(v.h),
+      intervalos: v.intervalos.map(i => ({desde: mTxt(i.d), hasta: mTxt(i.h), n: i.n})),
       periodos: Number(v.per2) / 100, aguinaldos: Number(v.agu2) / 100, descontados: Number(v.desc2) / 100,
       depositados: Number(v.dep2) / 100, totalMeses: Number(v.meses2) / 100,
       remuneracion: Number(v.remC) / 100, alicuota: Number(v.alic4) / 1e6,
@@ -637,6 +739,12 @@ async function guardar(){
 }
 
 /* ================== PLANILLA ================== */
+function filasPeriodos(r, per){
+  const iv = r.intervalos && r.intervalos.length > 1 ? r.intervalos : null;
+  if (!iv) return '<tr><td>' + esc(r.desde) + '</td><td>' + esc(r.hasta) + '</td><td>' + fmtCoef(per) + '</td></tr>';
+  return iv.map(i => '<tr><td>' + esc(i.desde) + '</td><td>' + esc(i.hasta) + '</td><td>' + i.n + '</td></tr>').join('') +
+    '<tr><th colspan="2" style="text-align:center">Total</th><th>' + fmtCoef(per) + '</th></tr>';
+}
 function planillaHTML(r){
   const men = cents(r.mensual), tot = cents(r.total);
   const per = c2(r.periodos), agu = c2(r.aguinaldos), tm = c2(r.totalMeses);
@@ -655,7 +763,7 @@ function planillaHTML(r){
     '</table>' +
     '<table class="per"><tr><th colspan="3" style="text-align:center">Períodos adeudados</th></tr>' +
       '<tr><th>Desde</th><th>Hasta</th><th>Total</th></tr>' +
-      '<tr><td>' + esc(r.desde) + '</td><td>' + esc(r.hasta) + '</td><td>' + fmtCoef(per) + '</td></tr></table>' +
+      filasPeriodos(r, per) + '</table>' +
     '<table class="calc">' +
       row('Remuneración Administrativa Actualizada', '$ ' + fmtMoney(cents(r.remuneracion))) +
       row((soloAporte ? 'Aporte ' : 'Aporte + Contribución ') + alic + ' %', '$ ' + fmtMoney(men)) +
@@ -745,6 +853,17 @@ function init(){
     let d = e.target.value.replace(/\D/g,'').slice(0,6);
     e.target.value = d.length > 2 ? d.slice(0,2) + '/' + d.slice(2) : d;
   }));
+  $('btnAddInt').onclick = agregarIntervalo;
+  $('intervalosExtra').addEventListener('input', e => {
+    if (!e.target.classList.contains('mes')) return;
+    let d = e.target.value.replace(/\D/g,'').slice(0,6);
+    e.target.value = d.length > 2 ? d.slice(0,2) + '/' + d.slice(2) : d;
+  });
+  $('intervalosExtra').addEventListener('click', e => {
+    if (!e.target.classList.contains('quitar')) return;
+    e.target.closest('.intervalo').remove();
+    renumerarIntervalos(); refresh();
+  });
   $('f_agu').addEventListener('input', () => { aguManual = true; });
   $('h_agu').addEventListener('click', e => { if (e.target.id === 'aguReset') { aguManual = false; refresh(); } });
   $('f_muni').addEventListener('change', e => {
@@ -752,6 +871,7 @@ function init(){
     $('f_lugar').value = m ? lugarDe(m) : '';
     const p = PRECARGA[m] || {};
     $('f_desde').value = p.desde || ''; $('f_hasta').value = p.hasta || '';
+    quitarIntervalos();
     $('f_desc').value = '0'; $('f_dep').value = p.dep || '0'; $('f_alic').value = p.alic || '6';
     $('f_agu').value = ''; aguManual = false;
     if (p.obs && !$('f_obs').value.trim()) $('f_obs').value = p.obs;
